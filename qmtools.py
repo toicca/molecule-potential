@@ -304,163 +304,7 @@ class Grid(Structure):
 		lib.qm_grid_ini(byref(grid))
 
 		return grid
-
-	def DensityGrid_save(self, filename):
-
-		d = {}
-		d["origin"] = self.origin
-		d["step"] = self.step
-		d["GPUblocks"] = self.GPUblocks
-		d["qube"] = self._qube
-		d["shape"] = self.shape
-
-		pickle.dump(d, open(filename, "wb"))
-		
-
-	def DensityGrid_load(molecule, filename):
-
-		d = pickle.load(open(filename, "rb"))
-
-		grid = Grid()
-		grid.origin = d["origin"]
-		grid.step = d["step"]
-		grid.shape = d["shape"]
-		grid.GPUblocks = d["GPUblocks"]
-		grid._qube = d["qube"]
-
-
-		grid.Ax = float3([1,0,0])
-		grid.Ay = float3([0,1,0])
-		grid.Az = float3([0,0,1])
-
-		npts = grid.shape.x * grid.shape.y * grid.shape.z
-		grid.npts = c_uint(npts)
-		grid.nfields = c_uint(1)
-
-		grid.qube = grid._qube.ctypes.data_as(POINTER(c_float))
-
-		# gpu allocation
-		lib.qm_grid_ini(byref(grid))
-
-		# copy to gpu
-		lib.qm_grid_toGPU(byref(grid))
-
-		return grid
-
-
-	def MultiFieldGrid(molecule, step, fat, nfields=1):
-
-		# get the min and max of each coordinate with some fat
-		xyz = molecule.Coords()
-		crdmax = numpy.amax(xyz, axis=0) + fat*ANG2BOR
-		crdmin = numpy.amin(xyz, axis=0) - fat*ANG2BOR
-
-		print("min {} -- max {}".format(crdmin, crdmax))
-
-		grd = crdmax - crdmin
-
-		grd = grd / (step * ANG2BOR)
-		grd = grd / 8.0;
-		grd = numpy.ceil(grd).astype(numpy.uint32) * 8
-		
-		grid = Grid()
-		grid.origin = float3(crdmin)
-		grid.Ax = float3([1,0,0])
-		grid.Ay = float3([0,1,0])
-		grid.Az = float3([0,0,1])
-		grid.step = c_float(step*ANG2BOR)
-
-		npts = grd[0] * grd[1] * grd[2]
-		grid.shape = dim3(grd[0], grd[1], grd[2])
-		grid.npts = c_uint(npts)
-		grid.nfields = c_uint(nfields)
-
-		grd = grd / 8
-		grd = grd.astype(numpy.uint32)
-		grid.GPUblocks 	= dim3(grd[0], grd[1], grd[2])
-
-
-		grid._qube = numpy.zeros(npts*nfields, dtype=numpy.float32)
-		grid.qube = grid._qube.ctypes.data_as(POINTER(c_float))
-
-		# gpu allocation
-		lib.qm_grid_ini(byref(grid))
-
-		return grid
-
-
-	def TestGrid(molecule, step, fat):
-
-		crdmin = numpy.asarray([-12,-11,-8])
-		crdmax = -crdmin
-
-		print("min {} -- max {}".format(crdmin, crdmax))
-
-		grd = crdmax - crdmin
-
-		grd = grd / (step * ANG2BOR)
-		grd = grd / 8.0;
-		grd = numpy.ceil(grd).astype(numpy.uint32) * 8
-		
-		grid = Grid()
-		grid.origin = float3(crdmin)
-		grid.Ax = float3([1,0,0])
-		grid.Ay = float3([0,1,0])
-		grid.Az = float3([0,0,1])
-		grid.step = c_float(step*ANG2BOR)
-
-		npts = grd[0] * grd[1] * grd[2]
-
-		grid.shape = dim3(grd[0], grd[1], grd[2])
-		grid.npts = c_uint(npts)
-
-		grd = grd / 8
-		grd = grd.astype(numpy.uint32)
-		grid.GPUblocks 	= dim3(grd[0], grd[1], grd[2])
-
-		#grid._qube = numpy.zeros(tuple(grid.shape.toArray()), dtype=numpy.float32, order='F') #, dtype=numpy.float32
-		#grid.qube = grid._qube.ctypes.data_as(POINTER(c_float))
-		grid._qube = numpy.zeros(npts, dtype=numpy.float32)
-		grid.qube = grid._qube.ctypes.data_as(POINTER(c_float))
-
-		# gpu allocation
-		lib.qm_grid_ini(byref(grid))
-
-		return grid
-
-
-	# create a grid with custom shape
-	def MakeGrid(origin, step, shape):
-
-		x0 = numpy.asarray(origin) * ANG2BOR
-
-		grd = numpy.asarray(shape)
-		grd = grd / 8.0;
-		grd = numpy.ceil(grd).astype(numpy.uint32) * 8
-		
-		grid = Grid()
-		grid.origin = float3(x0)
-		grid.Ax = float3([1,0,0])
-		grid.Ay = float3([0,1,0])
-		grid.Az = float3([0,0,1])
-		grid.step = c_float(step*ANG2BOR)
-
-		npts = grd[0] * grd[1] * grd[2]
-		grid.shape = dim3(grd[0], grd[1], grd[2])
-		grid.npts = c_uint(npts)
-
-		grd = grd / 8
-		grd = grd.astype(numpy.uint32)
-		grid.GPUblocks 	= dim3(grd[0], grd[1], grd[2])
-
-		grid._qube = numpy.zeros(npts, dtype=numpy.float32)
-		grid.qube = grid._qube.ctypes.data_as(POINTER(c_float))
-
-		# gpu allocation
-		lib.qm_grid_ini(byref(grid))
-
-		return grid
-
+	
 
 	def __str__(self):
 		return "origin: {}\nshape: {} -- points: {} gpublocks: {}".format(self.origin, self.shape, self.npts, self.GPUblocks)
@@ -490,14 +334,12 @@ class QMTools(Structure):
 
 	def __init__(self):
 
-
 		# setup the curand stuff
 		lib.qm_ini(byref(self))
 
 		# allocate
 		self.locations = None
 
-		
 
 	def __del__(self):
 
@@ -524,35 +366,15 @@ class QMTools(Structure):
 
 		self.rptsbuffer = (float3 * nrpts)()
 
-
 		lib.scsf_compute(byref(self), byref(molecule))
-
-
-		#self.locations = numpy.ctypeslib.as_array(self.rptsbuffer, shape=(nrpts,3))
 		self.locations = numpy.zeros((nrpts,3), dtype=numpy.float32)
 		for i in range(nrpts):
 			self.locations[i] = self.rptsbuffer[i].toArray()
-
-		#print(self.acsf)
-		#print(self.locations)
-		#print(self.acsf[0])
-		#print(self.qube, numpy.max(self.qube))
 
 
 	def ComputeDensity(self, molecule, grid):
 
 		lib.qm_densityqube(byref(molecule), byref(grid))
-		return numpy.copy(grid._qube)
-
-	def ComputeDensity_subgrid(self, molecule, grid):
-
-		lib.qm_densityqube_subgrid(byref(molecule), byref(grid))
-		return numpy.copy(grid._qube)
-
-	
-	def ComputeDensity_shmem(self, molecule, grid):
-
-		lib.qm_densityqube_shmem(byref(molecule), byref(grid))
 		return numpy.copy(grid._qube)
 	
 
@@ -656,11 +478,6 @@ class QMTools(Structure):
 
 		os.rename("pot.xsf", filename)
 
-	def PointPotentials(self): #, grid_in
-		#target_size = numpy.asfortranarray([grid_in.shape.x, grid_in.shape.y, grid_in.shape.z]).ctypes.data_as(POINTER(c_float))
-		lib.points() #byref(grid_in), target_size
-
-		#return numpy.copy(grid_in._qube)
 
 QMTools_p = POINTER(QMTools)
 #lib.scsf_compute.argtypes = [QMTools_p, Molecule_p]
@@ -675,109 +492,3 @@ lib.qm_gridmol_write.argtypes = [Grid_p, Molecule_p, c_char_p]
 lib.poisson_fft.argtypes = [Molecule_p, Grid_p, Grid_p, c_int, c_float, POINTER(c_float), c_int]
 lib.write_xsf.argtypes = [Grid_p, Molecule_p, c_int, c_int, c_int]
 
-
-
-lib.automaton_set_NN.argtypes = [POINTER(c_float), c_int]
-lib.automaton_reset.argtypes = [Grid_p]
-lib.automaton_compute_vnn.argtypes = [Grid_p, Molecule_p]
-lib.automaton_compute_qseed.argtypes = [Grid_p, Molecule_p]
-
-lib.automaton_compute_evolution.argtypes = [Grid_p, Molecule_p, c_int, c_int]
-lib.automaton_compute_evolution.restype = c_float
-
-lib.automaton_compare.argtypes = [Grid_p, Grid_p]
-lib.automaton_compare.restype = c_float
-
-
-class QMAutomaton(object):
-
-	def __init__(self):
-
-		pass
-
-
-	def SetNetwork(parameters):
-
-		e = numpy.asarray(parameters, dtype=numpy.float32)
-
-		# set the parameters in the library
-		lib.automaton_set_NN(e.ctypes.data_as(POINTER(c_float)), c_int(e.shape[0]))
-
-	def ResetQAB(grid, molecule):
-
-		# set all to 0
-		lib.automaton_reset(byref(grid))
-
-		# create a q seed
-		lib.automaton_compute_qseed(byref(grid), byref(molecule))
-
-
-	def ComputeVNe(grid, molecule):
-
-		lib.automaton_compute_vnn(byref(grid), byref(molecule))
-
-
-	def Evolve(grid, molecule, maxiter=1, copyback=0, saveall=False):
-
-		for i in range(maxiter):
-			delta = lib.automaton_compute_evolution(byref(grid), byref(molecule), c_int(1), c_int(copyback))
-			if saveall == True:
-				numpy.save("grid.evo.trained-{0:04d}.npy".format(i), grid._qube)
-
-		return delta
-
-	def Evolve_conv(grid, molecule, maxiter=1000, tolerance=1.0e-16):
-
-		nbatch = 300
-		iters = 0
-		delta = 1
-		while delta > tolerance:
-			delta = lib.automaton_compute_evolution(byref(grid), byref(molecule), c_int(nbatch), c_int(0))
-			iters += nbatch
-			if iters >= maxiter: break
-
-		print(iters, delta < tolerance)
-		lib.automaton_compute_evolution(byref(grid), byref(molecule), c_int(1), c_int(1))
-
-		return delta, iters
-
-	def Compare(refgrid, grid):
-
-		if not grid.shape.Equals(refgrid.shape):
-			print("compare: grids do not have same shape!",grid.shape, refgrid.shape)
-			return None
-
-		delta = lib.automaton_compare(byref(grid), byref(refgrid))
-		return delta
-
-
-
-	def Mix(e1, e2, mutationRate, mutationSize):
-
-		dnasize = e1.shape[0]
-		mask = numpy.random.choice([0,1], dnasize)
-
-		parents = [e1,e2]
-		son = numpy.zeros(dnasize)
-		for i in range(dnasize): son[i] = parents[mask[i]][i]
-		son = numpy.asarray(son, dtype=numpy.float32)
-
-		mp = mutationRate / dnasize
-		mutations = (2*numpy.random.rand(dnasize) - 1) * mutationSize
-		mask = numpy.random.choice([0,1], dnasize, p=[1-mp, mp])
-		mutations *= mask
-
-		son += mutations
-		# make sure the last 2 are positive numbers in 0-1
-		son[-2:] = numpy.abs(son[-2:])
-		if son[-1] > 1: son[-1] -= 1
-		if son[-2] > 1: son[-2] -= 1
-
-		return son
-
-	def Rand(dnasize, dnamax=2.5):
-
-		e = numpy.random.rand(dnasize)
-		e[0:-2] = (2*e[0:-2]-1)*dnamax # makes sure the last 2 parameters are positive
-
-		return e
