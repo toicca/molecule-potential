@@ -1,3 +1,9 @@
+This is a project done during my time at Aalto University as a research assistant. The aim of the project is to produce the electrostatic potential of a molecule from the molecules electron densities calculated with coupled clusters method.
+
+All C/C++ code (electron density part) in this repository was developed by Dr. Filippo Leonida Federici Canova of Nanolayers Ltd. He also created the initial Python library part. My contribution can be seen as functions in the Python library qmtools.py and as code developed in Fortran.
+
+
+
 # Installation
 
 ```
